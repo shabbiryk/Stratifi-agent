@@ -1,11 +1,14 @@
 import type { Metadata } from "next";
+import { Inter } from "next/font/google";
 import "@/styles/globals.css";
-import Navbar from "@/components/navbar";
-import { nohemi, spaceGrotesk } from "@/lib/fonts";
-import Providers from "./providers";
+import ConditionalNavbar from "@/components/conditional-navbar";
+import { ThemeProvider } from "@/components/theme-provider";
+import Providers from "@/app/providers";
+
+const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "StratiFi AI Agent - DeFAI",
+  title: "StratiFi AI Agent",
   description:
     "Advanced DeFi yield optimization powered by AI. Maximize your returns with intelligent strategy selection and real-time market analysis.",
   generator: "Stratefi",
@@ -35,16 +38,23 @@ export const metadata: Metadata = {
 
 export default function RootLayout({
   children,
-}: Readonly<{
+}: {
   children: React.ReactNode;
-}>) {
+}) {
   return (
-    <html lang="en" className="dark">
-      <body className={`${nohemi.variable} ${spaceGrotesk.variable} font-sans`}>
-        <Providers>
-          <Navbar />
-          {children}
-        </Providers>
+    <html lang="en" suppressHydrationWarning>
+      <body className={inter.className}>
+        <ThemeProvider
+          attribute="class"
+          defaultTheme="dark"
+          enableSystem
+          disableTransitionOnChange
+        >
+          <Providers>
+            <ConditionalNavbar />
+            {children}
+          </Providers>
+        </ThemeProvider>
       </body>
     </html>
   );

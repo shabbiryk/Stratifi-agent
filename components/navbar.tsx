@@ -6,14 +6,8 @@ import { usePathname } from "next/navigation";
 import {
   Wallet,
   Home as HomeIcon,
-  TrendingUp,
-  Book,
   Menu,
   X,
-  Brain,
-  Shield,
-  Zap,
-  Globe,
   User,
   ChevronDown,
   UserPlus,
@@ -39,31 +33,16 @@ const navLinks: NavLink[] = [
     description: "Overview & analytics",
   },
   {
-    href: "/portfolio",
-    label: "Portfolio",
-    icon: <TrendingUp className="h-4 w-4" />,
-    description: "Your yield positions",
+    href: "/about",
+    label: "About",
+    icon: <User className="h-4 w-4" />,
+    description: "Learn more about us",
   },
   {
-    href: "/markets",
-    label: "Markets",
-    icon: <Globe className="h-4 w-4" />,
-    description: "Explore opportunities",
-    badge: "Hot",
-  },
-  {
-    href: "/strategies",
-    label: "Strategies",
-    icon: <Brain className="h-4 w-4" />,
-    description: "AI-powered optimization",
-  },
-
-  {
-    href: "https://docs.stratifi.xyz/docs/category/stratifi-ai-agent/",
-    label: "Whitepaper",
-    icon: <Book className="h-4 w-4" />,
-    description: "Platform documentation",
-    external: true,
+    href: "/contacts",
+    label: "Contact",
+    icon: <UserPlus className="h-4 w-4" />,
+    description: "Get in touch",
   },
 ];
 
@@ -214,65 +193,54 @@ export default function Navbar() {
   );
 }
 
-// Individual Navigation Item Component
 interface NavItemProps {
   link: NavLink;
   pathname: string;
 }
 
 function NavItem({ link, pathname }: NavItemProps) {
-  const isActive = pathname === link.href;
-
-  if (link.external) {
-    return (
-      <a
-        href={link.href}
-        target="_blank"
-        rel="noopener noreferrer"
-        className="flex items-center"
-      >
-        <div
-          className={cn(
-            "flex items-center space-x-2 px-3 py-2",
-            "text-slate-300 hover:text-white"
-          )}
+  return link.external ? (
+    <a
+      href={link.href}
+      target="_blank"
+      rel="noopener noreferrer"
+      className={cn(
+        "flex items-center space-x-2 px-3 py-2 rounded-lg transition-colors",
+        pathname === link.href
+          ? "text-white bg-stratifi-200/10"
+          : "text-slate-300 hover:text-white hover:bg-stratifi-300/10"
+      )}
+    >
+      {link.icon}
+      <span className="font-medium">{link.label}</span>
+      {link.badge && (
+        <Badge
+          variant="outline"
+          className="ml-2 bg-blue-500/10 text-blue-400 border-none"
         >
-          {link.icon}
-          <span className="font-medium">{link.label}</span>
-          {link.badge && (
-            <Badge
-              variant="outline"
-              className="ml-2 bg-blue-500/10 text-blue-400 border-none"
-            >
-              {link.badge}
-            </Badge>
-          )}
-        </div>
-      </a>
-    );
-  }
-
-  return (
-    <Link href={link.href} className="flex items-center relative">
-      <div
-        className={cn(
-          "flex items-center space-x-2 px-3 py-2",
-          isActive ? "text-blue-400" : "text-slate-300 hover:text-white"
-        )}
-      >
-        {link.icon}
-        <span className="font-medium">{link.label}</span>
-        {link.badge && (
-          <Badge
-            variant="outline"
-            className="ml-2 bg-blue-500/10 text-blue-400 border-none"
-          >
-            {link.badge}
-          </Badge>
-        )}
-      </div>
-      {isActive && (
-        <div className="absolute bottom-0 left-1/2 w-1 h-1 bg-blue-400 rounded-full transform -translate-x-1/2" />
+          {link.badge}
+        </Badge>
+      )}
+    </a>
+  ) : (
+    <Link
+      href={link.href}
+      className={cn(
+        "flex items-center space-x-2 px-3 py-2 rounded-lg transition-colors",
+        pathname === link.href
+          ? "text-white bg-stratifi-200/10"
+          : "text-slate-300 hover:text-white hover:bg-stratifi-300/10"
+      )}
+    >
+      {link.icon}
+      <span className="font-medium">{link.label}</span>
+      {link.badge && (
+        <Badge
+          variant="outline"
+          className="ml-2 bg-blue-500/10 text-blue-400 border-none"
+        >
+          {link.badge}
+        </Badge>
       )}
     </Link>
   );
