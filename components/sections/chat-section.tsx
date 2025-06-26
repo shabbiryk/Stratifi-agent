@@ -13,6 +13,7 @@ import {
   ThumbsDown,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { usePrivy, useWallets } from "@privy-io/react-auth";
 
 // Chat message type for extensibility
 interface ChatMessage {
@@ -56,7 +57,6 @@ const EXAMPLE_PROMPTS = [
 const SUPPORTED_CHAINS = [
   { name: "Arbitrum", color: "bg-blue-500" },
   { name: "Base", color: "bg-blue-600" },
-  { name: "BSC", color: "bg-yellow-500" },
   { name: "Optimism", color: "bg-red-500" },
   { name: "Polygon", color: "bg-purple-500" },
   { name: "Berachain", color: "bg-orange-500" },
@@ -66,6 +66,10 @@ const SUPPORTED_CHAINS = [
 ];
 
 export function ChatSection() {
+  // Privy wallet connection
+  const { authenticated, login } = usePrivy();
+  const { wallets } = useWallets();
+
   // State for chat messages
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   // State for input box
@@ -77,6 +81,10 @@ export function ChatSection() {
   // Ref for auto-scrolling
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const chatContainerRef = useRef<HTMLDivElement>(null);
+
+  // Get primary wallet address for more personalized responses
+  const primaryWallet = wallets[0];
+  const walletAddress = primaryWallet?.address;
 
   // Auto-scroll to bottom
   const scrollToBottom = () => {
@@ -108,8 +116,17 @@ export function ChatSection() {
       aiResponse =
         "Bitcoin (BTC) is currently trading at approximately $43,250. The price has shown strong momentum recently with increased institutional adoption. Would you like me to help you buy some Bitcoin or analyze its technical indicators?";
     } else if (userLower.includes("portfolio")) {
-      aiResponse =
-        "I'd be happy to analyze your portfolio! To provide the most accurate analysis, I'll need to connect to your wallet first. This will allow me to:\n\n• View your current holdings\n• Calculate your total balance\n• Identify optimization opportunities\n• Suggest rebalancing strategies\n\nWould you like me to guide you through connecting your wallet?";
+      if (!authenticated || !walletAddress) {
+        aiResponse =
+          "I'd be happy to analyze your portfolio! To provide the most accurate analysis, I'll need to connect to your wallet first. This will allow me to:\n\n• View your current holdings\n• Calculate your total balance\n• Identify optimization opportunities\n• Suggest rebalancing strategies\n\nWould you like me to guide you through connecting your wallet?";
+      } else {
+        aiResponse = `Great! I can see your wallet is connected (${walletAddress.slice(
+          0,
+          6
+        )}...${walletAddress.slice(
+          -4
+        )}). Let me analyze your portfolio:\n\n📊 **Portfolio Analysis**\n• Scanning your holdings across supported chains...\n• Calculating total balance and allocation...\n• Identifying yield opportunities...\n\n💡 **Initial Recommendations:**\n• Consider diversifying across DeFi protocols\n• Look into staking opportunities for better yields\n• Monitor gas fees for optimal transaction timing\n\nWould you like me to dive deeper into any specific aspect of your portfolio?`;
+      }
     } else if (userLower.includes("invest") || userLower.includes("$100")) {
       aiResponse =
         "Great question! For a $100 investment, I'd recommend considering these strategies:\n\n🟢 **Conservative (Low Risk)**\n• 60% USDC staking (4-6% APY)\n• 40% ETH (for growth potential)\n\n🟡 **Moderate (Medium Risk)**\n• 40% ETH\n• 30% BTC\n• 30% High-yield DeFi protocols\n\n🔴 **Aggressive (High Risk)**\n• 50% Promising altcoins\n• 30% DeFi yield farming\n• 20% Emerging protocols\n\nWhat's your risk tolerance and investment timeline?";
@@ -124,8 +141,17 @@ export function ChatSection() {
       userLower.includes("ethereum") ||
       userLower.includes("eth")
     ) {
-      aiResponse =
-        "I can help you buy $100 worth of Ethereum on Base! Here's what I'll do:\n\n📋 **Transaction Summary**\n• Amount: $100 USD\n• Asset: Ethereum (ETH)\n• Network: Base\n• Est. ETH: ~0.045 ETH\n• Gas fees: ~$2-5\n\nTo proceed, I'll need to:\n1. Connect your wallet\n2. Confirm the transaction details\n3. Execute the swap\n\nShould I start the wallet connection process?";
+      if (!authenticated || !walletAddress) {
+        aiResponse =
+          "I can help you buy $100 worth of Ethereum on Base! Here's what I'll do:\n\n📋 **Transaction Summary**\n• Amount: $100 USD\n• Asset: Ethereum (ETH)\n• Network: Base\n• Est. ETH: ~0.045 ETH\n• Gas fees: ~$2-5\n\nTo proceed, I'll need to:\n1. Connect your wallet\n2. Confirm the transaction details\n3. Execute the swap\n\nShould I start the wallet connection process?";
+      } else {
+        aiResponse = `Perfect! Your wallet is connected. I can help you buy $100 worth of Ethereum on Base.\n\n📋 **Transaction Summary**\n• From wallet: ${walletAddress.slice(
+          0,
+          6
+        )}...${walletAddress.slice(
+          -4
+        )}\n• Amount: $100 USD\n• Asset: Ethereum (ETH)\n• Network: Base\n• Est. ETH: ~0.045 ETH\n• Gas fees: ~$2-5\n\n✅ **Ready to Execute:**\n1. ✓ Wallet connected\n2. ⏳ Preparing transaction...\n3. ⏳ Awaiting your confirmation\n\n*Note: This is a demo. In production, this would execute a real transaction.*\n\nWould you like me to proceed with this transaction?`;
+      }
     } else {
       aiResponse = `I understand you're asking about "${userMessage}". I'm here to help you with crypto trading, portfolio analysis, market insights, and DeFi strategies across multiple chains.\n\nI can assist you with:\n• Buying/selling crypto\n• Portfolio optimization\n• Market analysis\n• Cross-chain transactions\n• DeFi yield strategies\n\nWhat specific crypto-related task would you like help with?`;
     }

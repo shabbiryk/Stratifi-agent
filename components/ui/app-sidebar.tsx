@@ -67,8 +67,8 @@ export function AppSidebar({ className }: SidebarProps) {
                   variant="ghost"
                   className={`w-full justify-start gap-3 h-11 ${
                     isActive
-                      ? "bg-white text-slate-900 hover:bg-white/90"
-                      : "text-slate-300 hover:text-white hover:bg-slate-800"
+                      ? "bg-white text-slate-900 "
+                      : "text-slate-300  hover:bg-slate-800"
                   }`}
                 >
                   <Icon className="w-5 h-5" />
@@ -111,7 +111,7 @@ export function AppSidebar({ className }: SidebarProps) {
             href="https://discord.gg/mwaP3SRz2e"
             target="_blank"
             rel="noopener noreferrer"
-            className="p-2 rounded-lg text-slate-300 hover:text-white hover:bg-slate-800 transition-colors"
+            className="p-2 rounded-lg text-slate-300  hover:bg-slate-800 transition-colors"
             title="Discord"
           >
             <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">

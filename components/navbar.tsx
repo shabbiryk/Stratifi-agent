@@ -14,7 +14,6 @@ import {
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
-import WalletConnectButton from "./wallet-connect-button";
 
 interface NavLink {
   href: string;
@@ -109,7 +108,6 @@ export default function Navbar() {
 
             {/* Right Section */}
             <div className="flex items-center space-x-4">
-              <WalletConnectButton />
               {/* Mobile Menu Button */}
               <button
                 onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
@@ -179,9 +177,6 @@ export default function Navbar() {
                   </Link>
                 )
               )}
-              <div className="pt-4">
-                <WalletConnectButton />
-              </div>
             </div>
           </div>
         )}
