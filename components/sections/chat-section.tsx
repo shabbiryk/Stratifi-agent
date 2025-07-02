@@ -15,6 +15,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { usePrivy, useWallets } from "@privy-io/react-auth";
 import { useSession } from "@/hooks/use-session";
+import { useClientRandom } from "@/hooks/use-client-random";
 
 // Chat message type for extensibility - now matches Supabase schema
 interface ChatMessage {
@@ -102,6 +103,14 @@ export function ChatSection({
     signOut,
     setCurrentSession,
   } = useSession();
+
+  // Client-side random number generation to prevent hydration issues
+  const {
+    generateRandom,
+    generateRandomAPY,
+    generateRandomBalance,
+    generateRandomUtilization,
+  } = useClientRandom();
 
   // State for input box
   const [input, setInput] = useState("");
@@ -319,7 +328,7 @@ Would you like me to:
 
     // Simulate API delay
     await new Promise((resolve) =>
-      setTimeout(resolve, 1000 + Math.random() * 2000)
+      setTimeout(resolve, 1000 + generateRandom(0, 2000))
     );
 
     // Mock AI responses based on user input
@@ -353,10 +362,7 @@ To proceed with ${actionText}, I need to connect to your wallet first.
 
 Would you like me to guide you through the wallet connection process?`;
       } else {
-        const randomAPY =
-          action === "borrow"
-            ? (Math.random() * 5 + 3).toFixed(2)
-            : (Math.random() * 8 + 5).toFixed(2);
+        const randomAPY = generateRandomAPY(action !== "borrow");
         aiResponse = `Perfect! Let's proceed with ${actionText} ${token?.toUpperCase()} from Pool ${poolId}.
 
 ✅ **Transaction Details:**
@@ -397,7 +403,7 @@ Connect your wallet and I'll show you:
 • Pool utilization and rates
 • Transaction requirements`;
       } else {
-        const randomBalance = (Math.random() * 1000 + 100).toFixed(2);
+        const randomBalance = generateRandomBalance(100, 1000);
         aiResponse = `📊 **${
           action === "borrow" ? "Collateral" : "Balance"
         } Check for Pool ${poolId}**
@@ -430,10 +436,7 @@ Ready to proceed with ${actionText}?`;
         userLower.includes("apy") ||
         userLower.includes("interest"))
     ) {
-      const rate =
-        action === "borrow"
-          ? (Math.random() * 5 + 3).toFixed(2)
-          : (Math.random() * 8 + 5).toFixed(2);
+      const rate = generateRandomAPY(action !== "borrow");
       aiResponse = `📈 **${
         action === "borrow" ? "Interest Rates" : "APY Rates"
       } for ${token?.toUpperCase()} - Pool ${poolId}**
@@ -447,13 +450,13 @@ ${
 • Liquidation Threshold: 80%
 
 **Rate Factors:**
-• Pool utilization: ${(Math.random() * 40 + 50).toFixed(1)}%
+• Pool utilization: ${generateRandomUtilization()}%
 • Available liquidity: High
 • Market volatility: Moderate`
     : `💰 **Lending APY:**
 • Current APY: ${rate}%
 • Compounding: Daily
-• Pool Utilization: ${(Math.random() * 40 + 50).toFixed(1)}%
+• Pool Utilization: ${generateRandomUtilization()}%
 • Risk Level: Low-Medium
 
 **APY Breakdown:**
@@ -477,8 +480,8 @@ Since you're here to ${action} BTC from Pool ${poolId}, here's what's relevant:
 • Pool liquidity: High
 • ${
           action === "borrow"
-            ? `Interest Rate: ${(Math.random() * 5 + 3).toFixed(2)}%`
-            : `Current APY: ${(Math.random() * 8 + 5).toFixed(2)}%`
+            ? `Interest Rate: ${generateRandomAPY(false)}%`
+            : `Current APY: ${generateRandomAPY(true)}%`
         }
 
 Ready to proceed with ${actionText} BTC?`;
@@ -515,10 +518,9 @@ ${
 • Diversify across multiple pools for lower risk`
 }
 
-Current ${action === "borrow" ? "borrowing rate" : "APY"}: ${(
-          Math.random() * (action === "borrow" ? 5 : 8) +
-          (action === "borrow" ? 3 : 5)
-        ).toFixed(2)}%
+Current ${action === "borrow" ? "borrowing rate" : "APY"}: ${generateRandomAPY(
+          action !== "borrow"
+        )}%
 
 Would you like me to help you proceed with this strategy?`;
       } else {
@@ -556,10 +558,9 @@ Should I guide you through the wallet connection?`;
 • Wallet: ${walletAddress.slice(0, 6)}...${walletAddress.slice(-4)}
 • Asset: Ethereum (ETH)
 • Pool: ${poolId}
-• ${action === "borrow" ? "Interest Rate" : "Current APY"}: ${(
-            Math.random() * (action === "borrow" ? 5 : 8) +
-            (action === "borrow" ? 3 : 5)
-          ).toFixed(2)}%
+• ${action === "borrow" ? "Interest Rate" : "Current APY"}: ${generateRandomAPY(
+            action !== "borrow"
+          )}%
 
 ✅ **Ready to Execute:**
 1. ✓ Wallet connected

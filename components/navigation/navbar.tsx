@@ -49,10 +49,18 @@ export default function Navbar() {
   const [isScrolled, setIsScrolled] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [activeDropdown, setActiveDropdown] = useState<string | null>(null);
+  const [mounted, setMounted] = useState(false);
   const pathname = usePathname();
 
-  // Handle scroll effect
+  // Set mounted to true after component mounts to prevent hydration issues
   useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  // Handle scroll effect - only run on client side
+  useEffect(() => {
+    if (!mounted) return;
+
     const handleScroll = () => {
       if (pathname === "/") {
         setIsScrolled(window.scrollY > 10);
@@ -61,7 +69,7 @@ export default function Navbar() {
 
     window.addEventListener("scroll", handleScroll);
     return () => window.removeEventListener("scroll", handleScroll);
-  }, [pathname]);
+  }, [pathname, mounted]);
 
   // Close mobile menu when route changes
   useEffect(() => {
