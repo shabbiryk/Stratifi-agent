@@ -118,11 +118,15 @@ export function ChatSection({
   const [isTyping, setIsTyping] = useState(false);
   // State for welcome screen
   const [showWelcome, setShowWelcome] = useState(true);
+  // State to prevent concurrent session creation
+  const [isCreatingSession, setIsCreatingSession] = useState(false);
   // Ref for auto-scrolling
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const chatContainerRef = useRef<HTMLDivElement>(null);
   // Ref to track if asset context has been handled to prevent multiple sessions
   const assetContextHandled = useRef<string | null>(null);
+  // Ref to track the current wallet to prevent unnecessary re-execution
+  const lastWalletAddress = useRef<string | null>(null);
 
   // Get primary wallet address for more personalized responses
   const primaryWallet = wallets[0];
@@ -139,6 +143,11 @@ export function ChatSection({
 
   // Handle external session selection (from TopBar history)
   useEffect(() => {
+    // Prevent operations while creating session
+    if (isCreatingSession) {
+      return;
+    }
+
     if (
       externalCurrentSession &&
       externalCurrentSession.id !== currentSession?.id
@@ -147,21 +156,31 @@ export function ChatSection({
       setCurrentSession(externalCurrentSession);
       loadMessages(externalCurrentSession.id);
       setShowWelcome(false);
-    } else if (externalCurrentSession === null && currentSession && user) {
+    } else if (
+      externalCurrentSession === null &&
+      currentSession &&
+      user &&
+      !isCreatingSession
+    ) {
       // Handle new session request from TopBar
       console.log("New session requested from TopBar");
       // Clear current session and messages
       setCurrentSession(null);
       clearMessages();
       setShowWelcome(true);
+      setIsCreatingSession(true);
 
       // Create a new session
-      createSession(user.id).then((newSession) => {
-        if (newSession) {
-          console.log("New session created:", newSession.id);
-          // The session will be set via onCurrentSessionChange callback
-        }
-      });
+      createSession(user.id)
+        .then((newSession) => {
+          if (newSession) {
+            console.log("New session created:", newSession.id);
+            // The session will be set via onCurrentSessionChange callback
+          }
+        })
+        .finally(() => {
+          setIsCreatingSession(false);
+        });
     }
   }, [
     externalCurrentSession,
@@ -171,63 +190,93 @@ export function ChatSection({
     user,
     createSession,
     clearMessages,
+    isCreatingSession,
   ]);
 
   // Handle wallet connection and user setup
   useEffect(() => {
-    if (authenticated && walletAddress && !user) {
+    // Prevent duplicate execution for the same wallet
+    if (walletAddress === lastWalletAddress.current) {
+      return;
+    }
+
+    if (authenticated && walletAddress && !user && !isCreatingSession) {
       console.log("Setting up user session for wallet:", walletAddress);
+      lastWalletAddress.current = walletAddress;
       // Reset asset context tracking for new user
       assetContextHandled.current = null;
-      signInWithWallet(walletAddress).then((authenticatedUser) => {
-        if (authenticatedUser) {
-          loadSessions(authenticatedUser.id);
-        }
-      });
+      setIsCreatingSession(true);
+
+      signInWithWallet(walletAddress)
+        .then((authenticatedUser) => {
+          if (authenticatedUser) {
+            loadSessions(authenticatedUser.id);
+          }
+        })
+        .finally(() => {
+          setIsCreatingSession(false);
+        });
     } else if (!authenticated && user) {
       console.log("Wallet disconnected, signing out");
+      lastWalletAddress.current = null;
       // Reset asset context tracking when user signs out
       assetContextHandled.current = null;
       signOut();
     }
-  }, [authenticated, walletAddress, user]);
+  }, [
+    authenticated,
+    walletAddress,
+    user,
+    isCreatingSession,
+    signInWithWallet,
+    loadSessions,
+    signOut,
+  ]);
 
   // Handle asset context and session creation
   useEffect(() => {
-    if (user && token && poolId && action) {
-      // Create a unique key for this asset context
-      const contextKey = `${token}-${poolId}-${action}`;
+    // Only proceed if we have all required data and aren't already creating a session
+    if (!user || !token || !poolId || !action || isCreatingSession) {
+      return;
+    }
 
-      // Skip if we've already handled this exact context
-      if (assetContextHandled.current === contextKey) {
-        console.log("Asset context already handled:", contextKey);
-        return;
-      }
+    // Create a unique key for this asset context
+    const contextKey = `${user.id}-${token}-${poolId}-${action}`;
 
-      console.log("Creating/loading session for asset context:", {
-        token,
-        poolId,
-        action,
-      });
+    // Skip if we've already handled this exact context
+    if (assetContextHandled.current === contextKey) {
+      console.log("Asset context already handled:", contextKey);
+      return;
+    }
 
-      // Check for existing session with this context
-      const existingSession = sessions.find((session: any) => {
-        const context = session.metadata?.initialContext;
-        return (
-          context?.token === token &&
-          context?.poolId === poolId &&
-          context?.action === action
-        );
-      });
+    console.log("Creating/loading session for asset context:", {
+      token,
+      poolId,
+      action,
+    });
 
-      if (existingSession) {
-        console.log("Found existing session:", existingSession.id);
-        setCurrentSession(existingSession);
-        loadMessages(existingSession.id);
-        assetContextHandled.current = contextKey;
-      } else {
-        console.log("Creating new session for asset context");
-        createSession(user.id, { token, poolId, action }).then((newSession) => {
+    // Check for existing session with this context
+    const existingSession = sessions.find((session: any) => {
+      const context = session.metadata?.initialContext;
+      return (
+        context?.token === token &&
+        context?.poolId === poolId &&
+        context?.action === action
+      );
+    });
+
+    if (existingSession) {
+      console.log("Found existing session:", existingSession.id);
+      setCurrentSession(existingSession);
+      loadMessages(existingSession.id);
+      assetContextHandled.current = contextKey;
+      setShowWelcome(false);
+    } else if (!isCreatingSession) {
+      console.log("Creating new session for asset context");
+      setIsCreatingSession(true);
+
+      createSession(user.id, { token, poolId, action })
+        .then((newSession) => {
           if (newSession) {
             // Add initial context message
             const contextMessage = generateAssetDetailsMessage(
@@ -237,12 +286,25 @@ export function ChatSection({
             );
             addMessage(contextMessage, "ai", newSession);
             assetContextHandled.current = contextKey;
+            setShowWelcome(false);
           }
+        })
+        .finally(() => {
+          setIsCreatingSession(false);
         });
-      }
-      setShowWelcome(false);
     }
-  }, [user, token, poolId, action]);
+  }, [
+    user,
+    token,
+    poolId,
+    action,
+    sessions,
+    isCreatingSession,
+    createSession,
+    setCurrentSession,
+    loadMessages,
+    addMessage,
+  ]);
 
   // Update welcome state based on messages
   useEffect(() => {
@@ -616,7 +678,7 @@ What would you like me to help you with regarding your ${token?.toUpperCase()} $
 
   // Handler for sending a message
   const handleSend = async () => {
-    if (!input.trim() || !user) return;
+    if (!input.trim() || !user || isCreatingSession) return;
 
     const userMessage = input.trim();
     setInput("");
@@ -626,10 +688,15 @@ What would you like me to help you with regarding your ${token?.toUpperCase()} $
     let sessionToUse = currentSession;
     if (!sessionToUse) {
       console.log("Creating new session for message:", userMessage);
-      sessionToUse = await createSession(user.id);
-      if (!sessionToUse) {
-        console.error("Failed to create session");
-        return;
+      setIsCreatingSession(true);
+      try {
+        sessionToUse = await createSession(user.id);
+        if (!sessionToUse) {
+          console.error("Failed to create session");
+          return;
+        }
+      } finally {
+        setIsCreatingSession(false);
       }
     }
 
@@ -642,7 +709,7 @@ What would you like me to help you with regarding your ${token?.toUpperCase()} $
 
   // Handler for clicking an example prompt
   const handlePromptClick = async (prompt: string) => {
-    if (!user) return;
+    if (!user || isCreatingSession) return;
 
     setInput("");
     setShowWelcome(false);
@@ -651,10 +718,15 @@ What would you like me to help you with regarding your ${token?.toUpperCase()} $
     let sessionToUse = currentSession;
     if (!sessionToUse) {
       console.log("Creating new session for prompt:", prompt);
-      sessionToUse = await createSession(user.id);
-      if (!sessionToUse) {
-        console.error("Failed to create session");
-        return;
+      setIsCreatingSession(true);
+      try {
+        sessionToUse = await createSession(user.id);
+        if (!sessionToUse) {
+          console.error("Failed to create session");
+          return;
+        }
+      } finally {
+        setIsCreatingSession(false);
       }
     }
 
