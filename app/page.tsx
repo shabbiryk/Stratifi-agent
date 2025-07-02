@@ -3,7 +3,7 @@
 import { ChatSection } from "@/components/sections/chat-section";
 import { MainLayout } from "@/components/layouts";
 import { useSearchParams } from "next/navigation";
-import { Suspense, useState, useCallback } from "react";
+import { Suspense, useState, useCallback, useRef } from "react";
 
 function HomeContent() {
   const searchParams = useSearchParams();
@@ -16,6 +16,8 @@ function HomeContent() {
   // State for managing chat sessions
   const [sessions, setSessions] = useState<any[]>([]);
   const [currentSession, setCurrentSession] = useState<any>(null);
+  // Flag to prevent infinite loops when creating new sessions
+  const isCreatingNewSession = useRef(false);
 
   // Handle session changes from ChatSection
   const handleSessionsChange = useCallback((newSessions: any[]) => {
@@ -24,11 +26,18 @@ function HomeContent() {
 
   const handleCurrentSessionChange = useCallback((newSession: any) => {
     setCurrentSession(newSession);
+    // Reset the flag when a new session is actually created
+    if (newSession && isCreatingNewSession.current) {
+      isCreatingNewSession.current = false;
+    }
   }, []);
 
   // Handle session selection from TopBar history
   const handleSessionSelect = useCallback(
     (sessionId: string) => {
+      // Don't allow session selection while creating a new session
+      if (isCreatingNewSession.current) return;
+
       const session = sessions.find((s: any) => s.id === sessionId);
       if (session) {
         setCurrentSession(session);
@@ -40,6 +49,15 @@ function HomeContent() {
 
   // Handle new session creation from TopBar
   const handleNewSession = useCallback(async () => {
+    // Prevent multiple new session requests
+    if (isCreatingNewSession.current) {
+      console.log("New session already in progress, ignoring request");
+      return;
+    }
+
+    console.log("Starting new session creation from TopBar");
+    isCreatingNewSession.current = true;
+
     // Reset current session - ChatSection will create a new one
     setCurrentSession(null);
     // Note: The ChatSection will handle creating a new session in its useEffect
@@ -60,6 +78,7 @@ function HomeContent() {
         onSessionsChange={handleSessionsChange}
         onCurrentSessionChange={handleCurrentSessionChange}
         externalCurrentSession={currentSession}
+        isCreatingNewSession={isCreatingNewSession.current}
       />
     </MainLayout>
   );

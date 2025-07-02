@@ -36,6 +36,8 @@ interface ChatSectionProps {
   onCurrentSessionChange?: (session: any) => void;
   // External session selection (from TopBar history)
   externalCurrentSession?: any;
+  // Flag to prevent infinite loops when creating new sessions
+  isCreatingNewSession?: boolean;
 }
 
 // Typing indicator component
@@ -82,6 +84,7 @@ export function ChatSection({
   onSessionsChange,
   onCurrentSessionChange,
   externalCurrentSession,
+  isCreatingNewSession,
 }: ChatSectionProps) {
   // Privy wallet connection
   const { authenticated, login } = usePrivy();
@@ -160,9 +163,11 @@ export function ChatSection({
       externalCurrentSession === null &&
       currentSession &&
       user &&
-      !isCreatingSession
+      !isCreatingSession &&
+      isCreatingNewSession &&
+      !assetContextHandled.current
     ) {
-      // Handle new session request from TopBar
+      // Handle new session request from TopBar - only if explicitly requested
       console.log("New session requested from TopBar");
       // Clear current session and messages
       setCurrentSession(null);
@@ -191,12 +196,18 @@ export function ChatSection({
     createSession,
     clearMessages,
     isCreatingSession,
+    isCreatingNewSession,
   ]);
 
   // Handle wallet connection and user setup
   useEffect(() => {
     // Prevent duplicate execution for the same wallet
     if (walletAddress === lastWalletAddress.current) {
+      return;
+    }
+
+    // Prevent wallet setup if we're creating a new session
+    if (isCreatingNewSession) {
       return;
     }
 
@@ -228,6 +239,7 @@ export function ChatSection({
     walletAddress,
     user,
     isCreatingSession,
+    isCreatingNewSession,
     signInWithWallet,
     loadSessions,
     signOut,
@@ -236,7 +248,14 @@ export function ChatSection({
   // Handle asset context and session creation
   useEffect(() => {
     // Only proceed if we have all required data and aren't already creating a session
-    if (!user || !token || !poolId || !action || isCreatingSession) {
+    if (
+      !user ||
+      !token ||
+      !poolId ||
+      !action ||
+      isCreatingSession ||
+      isCreatingNewSession
+    ) {
       return;
     }
 
@@ -300,6 +319,7 @@ export function ChatSection({
     action,
     sessions,
     isCreatingSession,
+    isCreatingNewSession,
     createSession,
     setCurrentSession,
     loadMessages,
