@@ -11,6 +11,7 @@ import {
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { MarketingLayout } from "@/components/layouts";
 
 const marketOpportunities = [
   {
@@ -77,7 +78,7 @@ const marketOpportunities = [
 
 export default function marketsPage() {
   return (
-    <div className="min-h-screen bg-slate-950">
+    <MarketingLayout>
       <div className="container mx-auto px-4 py-12">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -165,7 +166,7 @@ export default function marketsPage() {
           ))}
         </div>
       </div>
-    </div>
+    </MarketingLayout>
   );
 }
 

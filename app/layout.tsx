@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "@/styles/globals.css";
-import ConditionalNavbar from "@/components/conditional-navbar";
 import { ThemeProvider } from "@/components/theme-provider";
 import Providers from "@/app/providers";
 
@@ -50,10 +49,7 @@ export default function RootLayout({
           enableSystem
           disableTransitionOnChange
         >
-          <Providers>
-            <ConditionalNavbar />
-            {children}
-          </Providers>
+          <Providers>{children}</Providers>
         </ThemeProvider>
       </body>
     </html>

@@ -18,8 +18,7 @@ import {
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import AppSidebar from "@/components/ui/app-sidebar";
-import TopBar from "@/components/ui/top-bar";
+import { MainLayout } from "@/components/layouts";
 
 const strategies = [
   {
@@ -78,153 +77,136 @@ const strategies = [
 
 export default function StrategiesPage() {
   return (
-    <div className="flex h-screen bg-slate-950 text-white">
-      {/* Sidebar */}
-      <AppSidebar />
+    <MainLayout>
+      <div className="flex-1 overflow-y-auto p-6">
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5 }}
+          className="mb-8"
+        >
+          <h1 className="text-4xl font-bold text-white mb-4">AI Strategies</h1>
+          <p className="text-slate-300 text-lg max-w-2xl">
+            Choose from our AI-powered strategies designed to optimize your DeFi
+            yields while managing risk
+          </p>
+        </motion.div>
 
-      {/* Main Content Area */}
-      <div className="flex-1 flex flex-col">
-        {/* Top Bar */}
-        <TopBar />
-
-        {/* Strategies Content */}
-        <div className="flex-1 overflow-y-auto p-6">
+        {/* Strategy Performance Overview */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5 }}
-            className="mb-8"
-          >
-            <h1 className="text-4xl font-bold text-white mb-4">
-              AI Strategies
-            </h1>
-            <p className="text-slate-300 text-lg max-w-2xl">
-              Choose from our AI-powered strategies designed to optimize your
-              DeFi yields while managing risk
-            </p>
-          </motion.div>
-
-          {/* Strategy Performance Overview */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.1 }}
-            >
-              <Card className="bg-slate-800/50 border-slate-700">
-                <CardContent className="p-6 text-center">
-                  <Brain className="h-8 w-8 text-blue-400 mx-auto mb-2" />
-                  <p className="text-2xl font-bold text-white">AI Powered</p>
-                  <p className="text-sm text-slate-400">
-                    Intelligent Optimization
-                  </p>
-                </CardContent>
-              </Card>
-            </motion.div>
-
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.2 }}
-            >
-              <Card className="bg-slate-800/50 border-slate-700">
-                <CardContent className="p-6 text-center">
-                  <TrendingUp className="h-8 w-8 text-green-400 mx-auto mb-2" />
-                  <p className="text-2xl font-bold text-white">15.7%</p>
-                  <p className="text-sm text-slate-400">Average APY</p>
-                </CardContent>
-              </Card>
-            </motion.div>
-
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.3 }}
-            >
-              <Card className="bg-slate-800/50 border-slate-700">
-                <CardContent className="p-6 text-center">
-                  <Shield className="h-8 w-8 text-purple-400 mx-auto mb-2" />
-                  <p className="text-2xl font-bold text-white">24/7</p>
-                  <p className="text-sm text-slate-400">Risk Monitoring</p>
-                </CardContent>
-              </Card>
-            </motion.div>
-          </div>
-
-          {/* Strategies Grid */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {strategies.map((strategy, index) => (
-              <StrategyCard
-                key={strategy.id}
-                strategy={strategy}
-                index={index}
-              />
-            ))}
-          </div>
-
-          {/* AI Insights */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.6 }}
-            className="mt-12"
+            transition={{ delay: 0.1 }}
           >
             <Card className="bg-slate-800/50 border-slate-700">
-              <CardHeader>
-                <CardTitle className="flex items-center space-x-2 text-white">
-                  <Brain className="h-5 w-5 text-blue-400" />
-                  <span>AI Market Intelligence</span>
-                </CardTitle>
-                <CardDescription className="text-slate-400">
-                  Real-time insights and recommendations from our AI engine
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div className="space-y-4">
-                    <h4 className="font-medium text-white">
-                      Current Recommendations
-                    </h4>
-                    <div className="space-y-2">
-                      <div className="flex items-center justify-between p-3 bg-slate-700/50 rounded-lg">
-                        <span className="text-sm text-slate-300">
-                          Increase USDC allocation
-                        </span>
-                        <Badge
-                          variant="outline"
-                          className="border-green-500/30 text-green-400 bg-green-500/10"
-                        >
-                          High Confidence
-                        </Badge>
-                      </div>
-                      <div className="flex items-center justify-between p-3 bg-slate-700/50 rounded-lg">
-                        <span className="text-sm text-slate-300">
-                          Reduce ETH exposure
-                        </span>
-                        <Badge
-                          variant="outline"
-                          className="border-yellow-500/30 text-yellow-400 bg-yellow-500/10"
-                        >
-                          Medium Confidence
-                        </Badge>
-                      </div>
-                    </div>
-                  </div>
-                  <div className="space-y-4">
-                    <h4 className="font-medium text-white">Market Outlook</h4>
-                    <p className="text-sm text-slate-400">
-                      Our AI predicts increased volatility in the next 48 hours.
-                      Consider moving to more conservative strategies
-                      temporarily.
-                    </p>
-                  </div>
-                </div>
+              <CardContent className="p-6 text-center">
+                <Brain className="h-8 w-8 text-blue-400 mx-auto mb-2" />
+                <p className="text-2xl font-bold text-white">AI Powered</p>
+                <p className="text-sm text-slate-400">
+                  Intelligent Optimization
+                </p>
+              </CardContent>
+            </Card>
+          </motion.div>
+
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.2 }}
+          >
+            <Card className="bg-slate-800/50 border-slate-700">
+              <CardContent className="p-6 text-center">
+                <TrendingUp className="h-8 w-8 text-green-400 mx-auto mb-2" />
+                <p className="text-2xl font-bold text-white">15.7%</p>
+                <p className="text-sm text-slate-400">Average APY</p>
+              </CardContent>
+            </Card>
+          </motion.div>
+
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.3 }}
+          >
+            <Card className="bg-slate-800/50 border-slate-700">
+              <CardContent className="p-6 text-center">
+                <Shield className="h-8 w-8 text-purple-400 mx-auto mb-2" />
+                <p className="text-2xl font-bold text-white">24/7</p>
+                <p className="text-sm text-slate-400">Risk Monitoring</p>
               </CardContent>
             </Card>
           </motion.div>
         </div>
+
+        {/* Strategies Grid */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {strategies.map((strategy, index) => (
+            <StrategyCard key={strategy.id} strategy={strategy} index={index} />
+          ))}
+        </div>
+
+        {/* AI Insights */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.6 }}
+          className="mt-12"
+        >
+          <Card className="bg-slate-800/50 border-slate-700">
+            <CardHeader>
+              <CardTitle className="flex items-center space-x-2 text-white">
+                <Brain className="h-5 w-5 text-blue-400" />
+                <span>AI Market Intelligence</span>
+              </CardTitle>
+              <CardDescription className="text-slate-400">
+                Real-time insights and recommendations from our AI engine
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="space-y-4">
+                  <h4 className="font-medium text-white">
+                    Current Recommendations
+                  </h4>
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between p-3 bg-slate-700/50 rounded-lg">
+                      <span className="text-sm text-slate-300">
+                        Increase USDC allocation
+                      </span>
+                      <Badge
+                        variant="outline"
+                        className="border-green-500/30 text-green-400 bg-green-500/10"
+                      >
+                        High Confidence
+                      </Badge>
+                    </div>
+                    <div className="flex items-center justify-between p-3 bg-slate-700/50 rounded-lg">
+                      <span className="text-sm text-slate-300">
+                        Reduce ETH exposure
+                      </span>
+                      <Badge
+                        variant="outline"
+                        className="border-yellow-500/30 text-yellow-400 bg-yellow-500/10"
+                      >
+                        Medium Confidence
+                      </Badge>
+                    </div>
+                  </div>
+                </div>
+                <div className="space-y-4">
+                  <h4 className="font-medium text-white">Market Outlook</h4>
+                  <p className="text-sm text-slate-400">
+                    Our AI predicts increased volatility in the next 48 hours.
+                    Consider moving to more conservative strategies temporarily.
+                  </p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </motion.div>
       </div>
-    </div>
+    </MainLayout>
   );
 }
 
