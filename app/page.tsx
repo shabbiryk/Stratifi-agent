@@ -1,6 +1,6 @@
 "use client";
 
-import { ChatSection } from "@/components/sections/chat-section";
+import { ChatSection } from "@/components/chat";
 import { MainLayout } from "@/components/layouts";
 import { useSearchParams } from "next/navigation";
 import { Suspense, useState, useCallback, useRef } from "react";
