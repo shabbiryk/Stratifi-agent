@@ -16,9 +16,20 @@ from uagents_core.contrib.protocols.chat import (
 subject_matter = "Morpho protocol"
 THE_GRAPH_API_KEY = "a3ef7642f7e7078d1c421b49945f2b0b"
 ASI_ONE_API_KEY = "sk_722811606cd4481fa12e436af86912f51e40fbdea68145d397dd2bed142d424b"
-MORPHO_SUBGRAPH_URL = "https://gateway.thegraph.com/api/subgraphs/id/71ZTy1veF9twER9CLMnPWeLQ7GZcwKsjmygejrgKirqs"
 
-def fetch_morpho_market_data(market_name=None, top_n=1):
+# Subgraph URLs for each chain
+SUBGRAPH_URLS = {
+    "katana": "https://gateway.thegraph.com/api/subgraphs/id/ESbNRVHte3nwhcHveux9cK4FFAZK3TTLc5mKQNtpYgmu",
+    "base": "https://gateway.thegraph.com/api/subgraphs/id/71ZTy1veF9twER9CLMnPWeLQ7GZcwKsjmygejrgKirqs",
+    "mainnet": "https://gateway.thegraph.com/api/subgraphs/id/8Lz789DP5VKLXumTMTgygjU2xtuzx8AhbaacgN5PYCAs",
+    "arbitrum": "https://gateway.thegraph.com/api/subgraphs/id/XsJn88DNCHJ1kgTqYeTgHMQSK4LuG1LR75339QVeQ26",
+}
+
+DEFAULT_CHAINS = ["katana", "base", "mainnet", "arbitrum"]
+
+def fetch_morpho_market_data(market_name=None, top_n=1, subgraph_url=None):
+    if not subgraph_url:
+        subgraph_url = SUBGRAPH_URLS["base"]
     headers = {"Authorization": f"Bearer {THE_GRAPH_API_KEY}"}
     if market_name:
         query = {
@@ -42,7 +53,7 @@ def fetch_morpho_market_data(market_name=None, top_n=1):
             """
         }
     try:
-        r = requests.post(MORPHO_SUBGRAPH_URL, json=query, headers=headers)
+        r = requests.post(subgraph_url, json=query, headers=headers)
         return r
     except Exception as e:
         return e
@@ -118,6 +129,14 @@ async def handle_message(ctx: Context, sender: str, msg: ChatMessage):
 
     try:
         lower_text = text.lower()
+        # Detect chain
+        chain = None
+        for c in SUBGRAPH_URLS:
+            if c in lower_text:
+                chain = c
+                break
+        if chain:
+            ctx.logger.info(f"User requested chain: {chain}")
         # Check for 'top N' request
         top_n = 1
         match = re.search(r"top\s*(\d+)", lower_text)
@@ -129,37 +148,71 @@ async def handle_message(ctx: Context, sender: str, msg: ChatMessage):
         if any(word in lower_text for word in ["morpho", "moprho", "morhpo", "morfo"]) or (
             "top" in lower_text and ("pool" in lower_text or "market" in lower_text)
         ):
-            ctx.logger.info(f"Querying Morpho subgraph for top {top_n} markets")
-            r = fetch_morpho_market_data(top_n=top_n)
-            if isinstance(r, Exception):
-                ctx.logger.error(f"Exception during fetch: {r}")
-                response = f"Error fetching Morpho data: {r}"
-            else:
-                ctx.logger.info(f"Subgraph response status: {r.status_code}")
-                if r.ok:
-                    data = r.json()
-                    ctx.logger.info(f"Subgraph response data: {data}")
-                    markets = data['data']['markets']
-                    if markets:
-                        lines = []
-                        for i, m in enumerate(markets, 1):
-                            pros_cons = get_market_pros_cons(m)
-                            lines.append(
-                                f"{i}. {m['name']} (ID: {m['id']}) | TVL: ${float(m['totalValueLockedUSD']):,.2f} | Supply: {m['totalSupply']} | Borrow: {m['totalBorrow']} | Active: {m['isActive']}\n{pros_cons}"
-                            )
-                        response = f"Top {len(markets)} Morpho Markets by TVL:\n" + "\n".join(lines)
-                        # If user also asked for 'best one', highlight the first and add reasoning
-                        if "best" in lower_text or "top 1" in lower_text:
-                            m = markets[0]
-                            reasoning = get_market_reasoning(m, rank=1)
-                            response += (
-                                f"\n\nBest Market:\n{m['name']} (ID: {m['id']})\nTVL: ${float(m['totalValueLockedUSD']):,.2f}\nTotal Supply: {m['totalSupply']}\nTotal Borrow: {m['totalBorrow']}\nActive: {m['isActive']}\nReason: {reasoning}"
-                            )
-                    else:
-                        response = "No market data found."
+            if chain:
+                ctx.logger.info(f"Querying Morpho subgraph for top {top_n} markets on {chain}")
+                r = fetch_morpho_market_data(top_n=top_n, subgraph_url=SUBGRAPH_URLS[chain])
+                if isinstance(r, Exception):
+                    ctx.logger.error(f"Exception during fetch: {r}")
+                    response = f"Error fetching Morpho data: {r}"
                 else:
-                    ctx.logger.error(f"Failed to fetch Morpho data: {r.text}")
-                    response = f"Failed to fetch Morpho data: {r.text}"
+                    ctx.logger.info(f"Subgraph response status: {r.status_code}")
+                    if r.ok:
+                        data = r.json()
+                        ctx.logger.info(f"Subgraph response data: {data}")
+                        markets = data['data']['markets']
+                        if markets:
+                            lines = []
+                            for i, m in enumerate(markets, 1):
+                                pros_cons = get_market_pros_cons(m)
+                                lines.append(
+                                    f"{i}. {m['name']} (ID: {m['id']}) | TVL: ${float(m['totalValueLockedUSD']):,.2f} | Supply: {m['totalSupply']} | Borrow: {m['totalBorrow']} | Active: {m['isActive']}\n{pros_cons}"
+                                )
+                            response = f"Top {len(markets)} Morpho Markets by TVL on {chain.capitalize()}:\n" + "\n".join(lines)
+                            # If user also asked for 'best one', highlight the first and add reasoning
+                            if "best" in lower_text or "top 1" in lower_text:
+                                m = markets[0]
+                                reasoning = get_market_reasoning(m, rank=1)
+                                response += (
+                                    f"\n\nBest Market:\n{m['name']} (ID: {m['id']})\nTVL: ${float(m['totalValueLockedUSD']):,.2f}\nTotal Supply: {m['totalSupply']}\nTotal Borrow: {m['totalBorrow']}\nActive: {m['isActive']}\nReason: {reasoning}"
+                                )
+                        else:
+                            response = f"No market data found for {chain}."
+                    else:
+                        ctx.logger.error(f"Failed to fetch Morpho data: {r.text}")
+                        response = f"Failed to fetch Morpho data: {r.text}"
+            else:
+                # Aggregate from all chains
+                all_markets = []
+                for c in DEFAULT_CHAINS:
+                    ctx.logger.info(f"Querying Morpho subgraph for top {top_n} markets on {c}")
+                    r = fetch_morpho_market_data(top_n=top_n, subgraph_url=SUBGRAPH_URLS[c])
+                    if isinstance(r, Exception) or not r.ok:
+                        ctx.logger.error(f"Failed to fetch Morpho data for {c}: {getattr(r, 'text', r)}")
+                        continue
+                    data = r.json()
+                    markets = data['data']['markets']
+                    for m in markets:
+                        m['chain'] = c
+                        all_markets.append(m)
+                # Sort all markets by TVL
+                all_markets.sort(key=lambda x: float(x['totalValueLockedUSD']), reverse=True)
+                if all_markets:
+                    lines = []
+                    for i, m in enumerate(all_markets[:top_n], 1):
+                        pros_cons = get_market_pros_cons(m)
+                        lines.append(
+                            f"{i}. {m['name']} (ID: {m['id']}) | Chain: {m['chain'].capitalize()} | TVL: ${float(m['totalValueLockedUSD']):,.2f} | Supply: {m['totalSupply']} | Borrow: {m['totalBorrow']} | Active: {m['isActive']}\n{pros_cons}"
+                        )
+                    response = f"Top {len(lines)} Morpho Markets by TVL (All Chains):\n" + "\n".join(lines)
+                    # If user also asked for 'best one', highlight the first and add reasoning
+                    if "best" in lower_text or "top 1" in lower_text:
+                        m = all_markets[0]
+                        reasoning = get_market_reasoning(m, rank=1)
+                        response += (
+                            f"\n\nBest Market:\n{m['name']} (ID: {m['id']}) | Chain: {m['chain'].capitalize()}\nTVL: ${float(m['totalValueLockedUSD']):,.2f}\nTotal Supply: {m['totalSupply']}\nTotal Borrow: {m['totalBorrow']}\nActive: {m['isActive']}\nReason: {reasoning}"
+                        )
+                else:
+                    response = "No market data found across all chains."
         else:
             ctx.logger.info("No matching branch found for user prompt.")
     except Exception as e:
