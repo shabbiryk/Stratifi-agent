@@ -1,6 +1,8 @@
 from datetime import datetime
 from uuid import uuid4
+import re
 import requests
+import os
 
 from uagents import Context, Protocol, Agent
 from uagents_core.contrib.protocols.chat import (
@@ -16,15 +18,7 @@ THE_GRAPH_API_KEY = "a3ef7642f7e7078d1c421b49945f2b0b"
 ASI_ONE_API_KEY = "sk_722811606cd4481fa12e436af86912f51e40fbdea68145d397dd2bed142d424b"
 MORPHO_SUBGRAPH_URL = "https://gateway.thegraph.com/api/subgraphs/id/71ZTy1veF9twER9CLMnPWeLQ7GZcwKsjmygejrgKirqs"
 
-# List of known asset pairs (add more as needed)
-KNOWN_PAIRS = [
-    "wUSDM / cbETH",
-    "wUSDM / WETH",
-    "USDC / wUSDM",
-    "wUSDM / unknown"
-]
-
-def fetch_morpho_market_data(market_name=None):
+def fetch_morpho_market_data(market_name=None, top_n=1):
     headers = {"Authorization": f"Bearer {THE_GRAPH_API_KEY}"}
     if market_name:
         query = {
@@ -43,8 +37,8 @@ def fetch_morpho_market_data(market_name=None):
         }
     else:
         query = {
-            "query": """
-            { markets(first: 1, orderBy: totalValueLockedUSD, orderDirection: desc) { id name totalValueLockedUSD totalSupply totalBorrow isActive } }
+            "query": f"""
+            {{ markets(first: {top_n}, orderBy: totalValueLockedUSD, orderDirection: desc) {{ id name totalValueLockedUSD totalSupply totalBorrow isActive }} }}
             """
         }
     try:
@@ -52,6 +46,56 @@ def fetch_morpho_market_data(market_name=None):
         return r
     except Exception as e:
         return e
+
+def get_market_reasoning(market, rank=1):
+    """
+    Use ASI:One LLM to generate a human explanation for why this market is ranked at the top.
+    """
+    url = "https://api.asi1.ai/v1/chat/completions"
+    headers = {
+        'Content-Type': 'application/json',
+        'Authorization': f'Bearer {os.getenv("ASI1_API_KEY") or ASI_ONE_API_KEY}'
+    }
+
+    prompt = f"""
+    You are a DeFi expert. Explain in 1-2 sentences, in plain English, why the following Morpho market is ranked #{rank} among all markets. Be clear and concise, and use the data provided.\n\nMarket: {market['name']}\nTVL: ${float(market['totalValueLockedUSD']):,.2f}\nTotal Supply: {market['totalSupply']}\nTotal Borrow: {market['totalBorrow']}\nActive: {market['isActive']}\n\nWhy is this the top market?
+    """
+
+    payload = {
+        "model": "asi1-mini",
+        "messages": [{"role": "user", "content": prompt}],
+        "temperature": 0.7,
+        "max_tokens": 100
+    }
+
+    try:
+        response = requests.post(url, headers=headers, json=payload)
+        response.raise_for_status()
+        return response.json()['choices'][0]['message']['content']
+    except Exception as e:
+        return f"(Could not fetch reasoning: {e})"
+
+def get_market_pros_cons(market):
+    url = "https://api.asi1.ai/v1/chat/completions"
+    headers = {
+        'Content-Type': 'application/json',
+        'Authorization': f'Bearer {os.getenv("ASI1_API_KEY") or ASI_ONE_API_KEY}'
+    }
+    prompt = f"""
+    You are a DeFi analyst. Given the following Morpho market data, list 1-2 main 'Goods' (pros) and 1-2 main 'Bads' (cons) for a user considering this pool. Be concise and use the data provided.\n\nMarket: {market['name']}\nTVL: ${float(market['totalValueLockedUSD']):,.2f}\nTotal Supply: {market['totalSupply']}\nTotal Borrow: {market['totalBorrow']}\nActive: {market['isActive']}\n\nList the goods and bads as bullet points under 'Goods:' and 'Bads:'.\n\nGoods:
+    """
+    payload = {
+        "model": "asi1-mini",
+        "messages": [{"role": "user", "content": prompt}],
+        "temperature": 0.7,
+        "max_tokens": 120
+    }
+    try:
+        response = requests.post(url, headers=headers, json=payload)
+        response.raise_for_status()
+        return response.json()['choices'][0]['message']['content']
+    except Exception as e:
+        return f"(Could not fetch pros/cons: {e})"
 
 agent = Agent()
 protocol = Protocol(spec=chat_protocol_spec)
@@ -73,40 +117,20 @@ async def handle_message(ctx: Context, sender: str, msg: ChatMessage):
     response = 'I am afraid something went wrong and I am unable to answer your question at the moment.'
 
     try:
-        found_pair = None
-        for pair in KNOWN_PAIRS:
-            if pair.lower() in text.lower():
-                found_pair = pair
-                break
-        if found_pair:
-            ctx.logger.info(f"Querying Morpho subgraph for market: {found_pair}")
-            r = fetch_morpho_market_data(found_pair)
-            if isinstance(r, Exception):
-                ctx.logger.error(f"Exception during fetch: {r}")
-                response = f"Error fetching data for {found_pair}: {r}"
-            else:
-                ctx.logger.info(f"Subgraph response status: {r.status_code}")
-                if r.ok:
-                    data = r.json()
-                    ctx.logger.info(f"Subgraph response data: {data}")
-                    markets = data['data']['markets']
-                    if markets:
-                        m = markets[0]
-                        response = (
-                            f"Market: {m['name']} (ID: {m['id']})\n"
-                            f"TVL: ${float(m['totalValueLockedUSD']):,.2f}\n"
-                            f"Total Supply: {m['totalSupply']}\n"
-                            f"Total Borrow: {m['totalBorrow']}\n"
-                            f"Active: {m['isActive']}"
-                        )
-                    else:
-                        response = f"No data found for market {found_pair}."
-                else:
-                    ctx.logger.error(f"Failed to fetch data for {found_pair}: {r.text}")
-                    response = f"Failed to fetch data for {found_pair}: {r.text}"
-        elif "morpho" in text.lower():
-            ctx.logger.info("Querying Morpho subgraph for top market")
-            r = fetch_morpho_market_data()
+        lower_text = text.lower()
+        # Check for 'top N' request
+        top_n = 1
+        match = re.search(r"top\s*(\d+)", lower_text)
+        if match:
+            top_n = int(match.group(1))
+            ctx.logger.info(f"User requested top {top_n} markets.")
+
+        # Only support top N and general morpho/pool/market logic
+        if any(word in lower_text for word in ["morpho", "moprho", "morhpo", "morfo"]) or (
+            "top" in lower_text and ("pool" in lower_text or "market" in lower_text)
+        ):
+            ctx.logger.info(f"Querying Morpho subgraph for top {top_n} markets")
+            r = fetch_morpho_market_data(top_n=top_n)
             if isinstance(r, Exception):
                 ctx.logger.error(f"Exception during fetch: {r}")
                 response = f"Error fetching Morpho data: {r}"
@@ -115,17 +139,29 @@ async def handle_message(ctx: Context, sender: str, msg: ChatMessage):
                 if r.ok:
                     data = r.json()
                     ctx.logger.info(f"Subgraph response data: {data}")
-                    market = data['data']['markets'][0]
-                    response = (
-                        f"Top Market: {market['name']} (ID: {market['id']})\n"
-                        f"TVL: ${float(market['totalValueLockedUSD']):,.2f}\n"
-                        f"Total Supply: {market['totalSupply']}\n"
-                        f"Total Borrow: {market['totalBorrow']}\n"
-                        f"Active: {market['isActive']}"
-                    )
+                    markets = data['data']['markets']
+                    if markets:
+                        lines = []
+                        for i, m in enumerate(markets, 1):
+                            pros_cons = get_market_pros_cons(m)
+                            lines.append(
+                                f"{i}. {m['name']} (ID: {m['id']}) | TVL: ${float(m['totalValueLockedUSD']):,.2f} | Supply: {m['totalSupply']} | Borrow: {m['totalBorrow']} | Active: {m['isActive']}\n{pros_cons}"
+                            )
+                        response = f"Top {len(markets)} Morpho Markets by TVL:\n" + "\n".join(lines)
+                        # If user also asked for 'best one', highlight the first and add reasoning
+                        if "best" in lower_text or "top 1" in lower_text:
+                            m = markets[0]
+                            reasoning = get_market_reasoning(m, rank=1)
+                            response += (
+                                f"\n\nBest Market:\n{m['name']} (ID: {m['id']})\nTVL: ${float(m['totalValueLockedUSD']):,.2f}\nTotal Supply: {m['totalSupply']}\nTotal Borrow: {m['totalBorrow']}\nActive: {m['isActive']}\nReason: {reasoning}"
+                            )
+                    else:
+                        response = "No market data found."
                 else:
                     ctx.logger.error(f"Failed to fetch Morpho data: {r.text}")
                     response = f"Failed to fetch Morpho data: {r.text}"
+        else:
+            ctx.logger.info("No matching branch found for user prompt.")
     except Exception as e:
         ctx.logger.exception(f"Error fetching Morpho data: {e}")
         response = f"Error fetching Morpho data: {e}"
