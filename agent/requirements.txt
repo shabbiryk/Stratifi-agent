@@ -1,2 +1,4 @@
 uagents
-requests 
+requests
+fastapi
+uvicorn 
