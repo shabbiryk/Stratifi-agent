@@ -1,0 +1,10 @@
+{
+    "MorphoAgent": {
+        "identity_key": "12ccfaad948d605ad8789436d1bf6b39bc5ebea61a2dceecd5805b03f3e8d543",
+        "wallet_key": "UaZeA0xJkskkueCXe2RvsnD8BUiHAh5Uotny9QLPXGc="
+    },
+    "TestAgent": {
+        "identity_key": "fabfd0cb390bd695c24f61aa5600b6cae0630ac681d4c0d967c8755b8f034076",
+        "wallet_key": "ysIOFyd5DNFfmXxIkmupKsxH6YLrk6Jg1Q0P4xbZmcw="
+    }
+}

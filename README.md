@@ -376,6 +376,32 @@ The system is designed to track:
 3. Verify environment variables and database connection
 4. Compare implementation with provided examples
 
+# Morpho Agent (uAgents + The Graph)
+
+This project includes a Python agent (using [uAgents](https://docs.agentverse.ai/docs/uAgents/asimini-agent)) that answers questions about the Morpho protocol by fetching live data from The Graph's Morpho subgraph.
+
+## Setup
+
+1. **Install Python dependencies**
+
+   ```sh
+   pip install -r agent/requirements.txt
+   ```
+
+2. **Set your API keys**
+   - `THE_GRAPH_API_KEY`: Get from [The Graph](https://thegraph.com/)
+   - `ASI_ONE_API_KEY`: Get from [ASI:One](https://asi1.ai/dashboard/api-keys)
+
+   You can set these as environment variables or directly in `agent/agent.py` for testing.
+
+3. **Run the agent**
+
+   ```sh
+   python agent/agent.py
+   ```
+
+The agent will listen for chat messages about Morpho protocol and respond with live data from the Morpho subgraph.
+
 ---
 
 **Built with ❤️ for the DeFi community**
