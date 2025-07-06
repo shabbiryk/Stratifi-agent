@@ -1,3 +1,8 @@
+here's the demo:
+
+
+
+
 # StratiFi Chat Interface
 
 A sophisticated conversational AI interface for DeFi operations with persistent session tracking, wallet-based authentication, and context-aware responses.
