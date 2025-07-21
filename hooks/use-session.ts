@@ -25,6 +25,11 @@ export function useSession() {
 
       if (fetchError) {
         console.error("❌ Error fetching user:", fetchError);
+        console.error("Fetch error details:", {
+          message: fetchError.message || "No error message",
+          code: fetchError.code || "No error code",
+          details: fetchError.details || "No error details",
+        });
         throw fetchError;
       }
 
@@ -55,6 +60,11 @@ export function useSession() {
 
       if (createError) {
         console.error("❌ Error creating user:", createError);
+        console.error("Create error details:", {
+          message: createError.message || "No error message",
+          code: createError.code || "No error code",
+          details: createError.details || "No error details",
+        });
         throw createError;
       }
 
@@ -63,6 +73,12 @@ export function useSession() {
       return newUser;
     } catch (error) {
       console.error("❌ Sign in error:", error);
+      // Provide more detailed error information
+      if (error && typeof error === "object" && "message" in error) {
+        console.error("Error details:", error.message);
+      } else {
+        console.error("Unknown error occurred during sign in");
+      }
       return null;
     }
   }, []);

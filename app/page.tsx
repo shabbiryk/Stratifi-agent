@@ -4,6 +4,7 @@ import { ChatSection } from "@/components/sections/chat-section";
 import { MainLayout } from "@/components/layouts";
 import { useSearchParams } from "next/navigation";
 import { Suspense, useState, useCallback, useRef } from "react";
+import ClientOnlyWrapper from "@/components/client-only-wrapper";
 
 function HomeContent() {
   const searchParams = useSearchParams();
@@ -64,23 +65,31 @@ function HomeContent() {
   }, []);
 
   return (
-    <MainLayout
-      sessions={sessions}
-      currentSession={currentSession}
-      onSessionSelect={handleSessionSelect}
-      onNewSession={handleNewSession}
-      showChatHistory={true} // Enable chat history in TopBar
+    <ClientOnlyWrapper
+      fallback={
+        <div className="min-h-screen bg-slate-950 flex items-center justify-center">
+          <div className="text-white">Loading...</div>
+        </div>
+      }
     >
-      <ChatSection
-        token={token}
-        poolId={poolId}
-        action={action}
-        onSessionsChange={handleSessionsChange}
-        onCurrentSessionChange={handleCurrentSessionChange}
-        externalCurrentSession={currentSession}
-        isCreatingNewSession={isCreatingNewSession.current}
-      />
-    </MainLayout>
+      <MainLayout
+        sessions={sessions}
+        currentSession={currentSession}
+        onSessionSelect={handleSessionSelect}
+        onNewSession={handleNewSession}
+        showChatHistory={true} // Enable chat history in TopBar
+      >
+        <ChatSection
+          token={token}
+          poolId={poolId}
+          action={action}
+          onSessionsChange={handleSessionsChange}
+          onCurrentSessionChange={handleCurrentSessionChange}
+          externalCurrentSession={currentSession}
+          isCreatingNewSession={isCreatingNewSession.current}
+        />
+      </MainLayout>
+    </ClientOnlyWrapper>
   );
 }
 
