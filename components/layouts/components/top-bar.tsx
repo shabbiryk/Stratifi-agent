@@ -183,8 +183,27 @@ export function TopBar({
                                 <div className="flex items-start gap-3 w-full">
                                   <MessageSquare className="h-4 w-4 mt-0.5 flex-shrink-0" />
                                   <div className="flex-1 min-w-0">
-                                    <div className="text-sm font-medium truncate">
-                                      {session.session_name || "Untitled Chat"}
+                                    <div className="flex items-center gap-2 mb-1">
+                                      <div className="text-sm font-medium truncate flex-1">
+                                        {session.session_name ||
+                                          "Untitled Chat"}
+                                      </div>
+                                      {/* Mode indicator */}
+                                      {session.metadata?.mode && (
+                                        <Badge
+                                          variant="outline"
+                                          className={`text-xs px-1.5 py-0.5 ${
+                                            session.metadata.mode ===
+                                            "reasoning"
+                                              ? "border-blue-500/30 text-blue-400 bg-blue-500/10"
+                                              : "border-purple-500/30 text-purple-400 bg-purple-500/10"
+                                          }`}
+                                        >
+                                          {session.metadata.mode === "reasoning"
+                                            ? "Research"
+                                            : "Agent"}
+                                        </Badge>
+                                      )}
                                     </div>
                                     <div className="flex items-center gap-2 mt-1">
                                       <Clock className="h-3 w-3 opacity-50" />

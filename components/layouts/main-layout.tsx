@@ -12,6 +12,8 @@ interface MainLayoutProps {
   onSessionSelect?: (sessionId: string) => void;
   onNewSession?: () => void;
   showChatHistory?: boolean;
+  // Control research widget visibility
+  showResearchWidget?: boolean;
 }
 
 export function MainLayout({
@@ -21,6 +23,7 @@ export function MainLayout({
   onSessionSelect,
   onNewSession,
   showChatHistory = false,
+  showResearchWidget = true,
 }: MainLayoutProps) {
   return (
     <div className="flex h-screen bg-slate-950 text-white">
@@ -42,8 +45,8 @@ export function MainLayout({
         <main className="flex-1 min-h-0">{children}</main>
       </div>
 
-      {/* Floating Research Chat Button */}
-      <FloatingChatButton />
+      {/* Floating Research Chat Button - Only show when enabled */}
+      {showResearchWidget && <FloatingChatButton />}
     </div>
   );
 }

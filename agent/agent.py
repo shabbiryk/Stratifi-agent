@@ -6,15 +6,8 @@ import os
 from typing import List, Optional
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-
-from uagents import Context, Protocol, Agent, Model
-from uagents_core.contrib.protocols.chat import (
-    ChatAcknowledgement,
-    ChatMessage,
-    EndSessionContent,
-    TextContent,
-    chat_protocol_spec,
-)
+from pydantic import BaseModel
+import uvicorn
 
 subject_matter = "Morpho protocol"
 THE_GRAPH_API_KEY = "a3ef7642f7e7078d1c421b49945f2b0b"
@@ -30,20 +23,11 @@ SUBGRAPH_URLS = {
 
 DEFAULT_CHAINS = ["katana", "base", "mainnet", "arbitrum"]
 
-# Agent configuration for Agentverse
-AGENT_NAME = "stratifi-defi-agent"
+# Agent configuration
 AGENT_PORT = int(os.getenv("AGENT_PORT", "8000"))
-AGENT_ENDPOINT = os.getenv("AGENT_ENDPOINT", f"http://127.0.0.1:{AGENT_PORT}/submit")
 
-# Create agent with Agentverse-compatible configuration
-agent = Agent(
-    name=AGENT_NAME,
-    port=AGENT_PORT,
-    endpoint=[AGENT_ENDPOINT]
-)
-
-# Add CORS middleware for local development
-app = FastAPI()
+# Create FastAPI app
+app = FastAPI(title="StratiFi DeFi Agent", version="1.0.0")
 
 app.add_middleware(
     CORSMiddleware,
@@ -53,21 +37,19 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-app.include_router(agent.router)
-
 # REST API Models for frontend integration
-class ChatRequest(Model):
+class ChatRequest(BaseModel):
     message: str
     session_id: Optional[str] = None
     user_id: Optional[str] = None
 
-class ChatResponse(Model):
+class ChatResponse(BaseModel):
     response: str
     session_id: str
     timestamp: str
     error: Optional[str] = None
 
-class HealthResponse(Model):
+class HealthResponse(BaseModel):
     status: str
     agent_name: str
     version: str
@@ -154,138 +136,12 @@ def get_market_pros_cons(market):
     except Exception as e:
         return f"(Could not fetch pros/cons: {e})"
 
-protocol = Protocol(spec=chat_protocol_spec)
-
-@protocol.on_message(ChatMessage)
-async def handle_message(ctx: Context, sender: str, msg: ChatMessage):
-    ctx.logger.info(f"Received message from {sender}: {msg}")
-    await ctx.send(
-        sender,
-        ChatAcknowledgement(timestamp=datetime.now(), acknowledged_msg_id=msg.msg_id),
-    )
-
-    text = ''
-    for item in msg.content:
-        if isinstance(item, TextContent):
-            text += item.text
-    ctx.logger.info(f"User prompt: {text}")
-
-    response = 'I am afraid something went wrong and I am unable to answer your question at the moment.'
-
-    try:
-        lower_text = text.lower()
-        # Detect chain
-        chain = None
-        for c in SUBGRAPH_URLS:
-            if c in lower_text:
-                chain = c
-                break
-        if chain:
-            ctx.logger.info(f"User requested chain: {chain}")
-        # Check for 'top N' request
-        top_n = 1
-        match = re.search(r"top\s*(\d+)", lower_text)
-        if match:
-            top_n = int(match.group(1))
-            ctx.logger.info(f"User requested top {top_n} markets.")
-
-        # Only support top N and general morpho/pool/market logic
-        if any(word in lower_text for word in ["morpho", "moprho", "morhpo", "morfo"]) or (
-            "top" in lower_text and ("pool" in lower_text or "market" in lower_text)
-        ):
-            if chain:
-                ctx.logger.info(f"Querying Morpho subgraph for top {top_n} markets on {chain}")
-                r = fetch_morpho_market_data(top_n=top_n, subgraph_url=SUBGRAPH_URLS[chain])
-                if isinstance(r, Exception):
-                    ctx.logger.error(f"Exception during fetch: {r}")
-                    response = f"Error fetching Morpho data: {r}"
-                else:
-                    ctx.logger.info(f"Subgraph response status: {r.status_code}")
-                    if r.ok:
-                        data = r.json()
-                        ctx.logger.info(f"Subgraph response data: {data}")
-                        markets = data['data']['markets']
-                        if markets:
-                            lines = []
-                            for i, m in enumerate(markets, 1):
-                                pros_cons = get_market_pros_cons(m)
-                                lines.append(
-                                    f"{i}. {m['name']} (ID: {m['id']}) | TVL: ${float(m['totalValueLockedUSD']):,.2f} | Supply: {m['totalSupply']} | Borrow: {m['totalBorrow']} | Active: {m['isActive']}\n{pros_cons}"
-                                )
-                            response = f"Top {len(markets)} Morpho Markets by TVL on {chain.capitalize()}:\n" + "\n".join(lines)
-                            # If user also asked for 'best one', highlight the first and add reasoning
-                            if "best" in lower_text or "top 1" in lower_text:
-                                m = markets[0]
-                                reasoning = get_market_reasoning(m, rank=1)
-                                response += (
-                                    f"\n\nBest Market:\n{m['name']} (ID: {m['id']})\nTVL: ${float(m['totalValueLockedUSD']):,.2f}\nTotal Supply: {m['totalSupply']}\nTotal Borrow: {m['totalBorrow']}\nActive: {m['isActive']}\nReason: {reasoning}"
-                                )
-                        else:
-                            response = f"No market data found for {chain}."
-                    else:
-                        ctx.logger.error(f"Failed to fetch Morpho data: {r.text}")
-                        response = f"Failed to fetch Morpho data: {r.text}"
-            else:
-                # Aggregate from all chains
-                all_markets = []
-                for c in DEFAULT_CHAINS:
-                    ctx.logger.info(f"Querying Morpho subgraph for top {top_n} markets on {c}")
-                    r = fetch_morpho_market_data(top_n=top_n, subgraph_url=SUBGRAPH_URLS[c])
-                    if isinstance(r, Exception) or not r.ok:
-                        ctx.logger.error(f"Failed to fetch Morpho data for {c}: {getattr(r, 'text', r)}")
-                        continue
-                    data = r.json()
-                    markets = data['data']['markets']
-                    for m in markets:
-                        m['chain'] = c
-                        all_markets.append(m)
-                # Sort all markets by TVL
-                all_markets.sort(key=lambda x: float(x['totalValueLockedUSD']), reverse=True)
-                if all_markets:
-                    lines = []
-                    for i, m in enumerate(all_markets[:top_n], 1):
-                        pros_cons = get_market_pros_cons(m)
-                        lines.append(
-                            f"{i}. {m['name']} ({m['chain'].capitalize()}) | TVL: ${float(m['totalValueLockedUSD']):,.2f} | Supply: {m['totalSupply']} | Borrow: {m['totalBorrow']} | Active: {m['isActive']}\n{pros_cons}"
-                        )
-                    response = f"Top {len(lines)} Morpho Markets by TVL across all chains:\n" + "\n".join(lines)
-                else:
-                    response = "No market data found across all chains."
-        else:
-            response = "I can help you with Morpho protocol data. Try asking about 'top markets', 'best pools', or specific chains like 'Base' or 'Arbitrum'."
-    except Exception as e:
-        ctx.logger.error(f"Error processing message: {e}")
-        response = f"An error occurred while processing your request: {str(e)}"
-    
-    ctx.logger.info(f"Responding with: {response}")
-    await ctx.send(sender, ChatMessage(
-        timestamp=datetime.utcnow(),
-        msg_id=uuid4(),
-        content=[
-            TextContent(type="text", text=response),
-            EndSessionContent(type="end-session"),
-        ]
-    ))
-
-@protocol.on_message(ChatAcknowledgement)
-async def handle_ack(ctx: Context, sender: str, msg: ChatAcknowledgement):
-    pass
-
-@agent.on_event("startup")
-async def startup(ctx: Context):
-    ctx.logger.info(f"Hello, I'm a Morpho agent and my address is {ctx.agent.address}.")
-
-agent.include(protocol, publish_manifest=True)
-
 # REST API endpoints for frontend integration
-@agent.on_rest_post("/chat", ChatRequest, ChatResponse)
-async def handle_chat_request(ctx: Context, req: ChatRequest) -> ChatResponse:
+@app.post("/chat", response_model=ChatResponse)
+async def handle_chat_request(req: ChatRequest):
     """Handle chat requests from frontend"""
     try:
-        ctx.logger.info(f"Received chat request: {req.message}")
-        
-        # Process the message using existing logic
-        response = await process_message(ctx, req.message)
+        response = await process_message(req.message)
         
         return ChatResponse(
             response=response,
@@ -293,7 +149,6 @@ async def handle_chat_request(ctx: Context, req: ChatRequest) -> ChatResponse:
             timestamp=datetime.now().isoformat()
         )
     except Exception as e:
-        ctx.logger.error(f"Error processing chat request: {e}")
         return ChatResponse(
             response="",
             session_id=req.session_id or str(uuid4()),
@@ -301,17 +156,17 @@ async def handle_chat_request(ctx: Context, req: ChatRequest) -> ChatResponse:
             error=str(e)
         )
 
-@agent.on_rest_get("/health", HealthResponse)
-async def health_check(ctx: Context) -> HealthResponse:
+@app.get("/health", response_model=HealthResponse)
+async def health_check():
     """Health check endpoint for frontend monitoring"""
     return HealthResponse(
         status="healthy",
-        agent_name=AGENT_NAME,
+        agent_name="StratiFi DeFi Agent",
         version="1.0.0",
         timestamp=datetime.now().isoformat()
     )
 
-async def process_message(ctx: Context, message: str) -> str:
+async def process_message(message: str) -> str:
     """Process message using existing logic"""
     response = 'I am afraid something went wrong and I am unable to answer your question at the moment.'
 
@@ -324,29 +179,29 @@ async def process_message(ctx: Context, message: str) -> str:
                 chain = c
                 break
         if chain:
-            ctx.logger.info(f"User requested chain: {chain}")
+            print(f"User requested chain: {chain}")
         # Check for 'top N' request
         top_n = 1
         match = re.search(r"top\s*(\d+)", lower_text)
         if match:
             top_n = int(match.group(1))
-            ctx.logger.info(f"User requested top {top_n} markets.")
+            print(f"User requested top {top_n} markets.")
 
         # Only support top N and general morpho/pool/market logic
         if any(word in lower_text for word in ["morpho", "moprho", "morhpo", "morfo"]) or (
             "top" in lower_text and ("pool" in lower_text or "market" in lower_text)
         ):
             if chain:
-                ctx.logger.info(f"Querying Morpho subgraph for top {top_n} markets on {chain}")
+                print(f"Querying Morpho subgraph for top {top_n} markets on {chain}")
                 r = fetch_morpho_market_data(top_n=top_n, subgraph_url=SUBGRAPH_URLS[chain])
                 if isinstance(r, Exception):
-                    ctx.logger.error(f"Exception during fetch: {r}")
+                    print(f"Exception during fetch: {r}")
                     response = f"Error fetching Morpho data: {r}"
                 else:
-                    ctx.logger.info(f"Subgraph response status: {r.status_code}")
+                    print(f"Subgraph response status: {r.status_code}")
                     if r.ok:
                         data = r.json()
-                        ctx.logger.info(f"Subgraph response data: {data}")
+                        print(f"Subgraph response data: {data}")
                         markets = data['data']['markets']
                         if markets:
                             lines = []
@@ -366,16 +221,16 @@ async def process_message(ctx: Context, message: str) -> str:
                         else:
                             response = f"No market data found for {chain}."
                     else:
-                        ctx.logger.error(f"Failed to fetch Morpho data: {r.text}")
+                        print(f"Failed to fetch Morpho data: {r.text}")
                         response = f"Failed to fetch Morpho data: {r.text}"
             else:
                 # Aggregate from all chains
                 all_markets = []
                 for c in DEFAULT_CHAINS:
-                    ctx.logger.info(f"Querying Morpho subgraph for top {top_n} markets on {c}")
+                    print(f"Querying Morpho subgraph for top {top_n} markets on {c}")
                     r = fetch_morpho_market_data(top_n=top_n, subgraph_url=SUBGRAPH_URLS[c])
                     if isinstance(r, Exception) or not r.ok:
-                        ctx.logger.error(f"Failed to fetch Morpho data for {c}: {getattr(r, 'text', r)}")
+                        print(f"Failed to fetch Morpho data for {c}: {getattr(r, 'text', r)}")
                         continue
                     data = r.json()
                     markets = data['data']['markets']
@@ -395,12 +250,16 @@ async def process_message(ctx: Context, message: str) -> str:
                 else:
                     response = "No market data found across all chains."
         else:
-            response = "I can help you with Morpho protocol data. Try asking about 'top markets', 'best pools', or specific chains like 'Base' or 'Arbitrum'."
+            # For general DeFi questions, provide helpful responses
+            if any(word in lower_text for word in ["defi", "lending", "borrowing", "yield", "apy"]):
+                response = "I can help you with DeFi lending and borrowing on Morpho protocol. Try asking about 'top markets', 'best lending pools', or specific chains like 'Base' or 'Arbitrum'."
+            else:
+                response = "Hello! I'm your DeFi agent specializing in Morpho protocol. I can help you find the best lending and borrowing opportunities. Try asking about 'top markets' or 'best pools on Base'."
     except Exception as e:
-        ctx.logger.error(f"Error processing message: {e}")
+        print(f"Error processing message: {e}")
         response = f"An error occurred while processing your request: {str(e)}"
     
     return response
 
 if __name__ == "__main__":
-    agent.run() 
+    uvicorn.run(app, host="0.0.0.0", port=AGENT_PORT) 
