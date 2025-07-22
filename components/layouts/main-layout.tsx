@@ -2,6 +2,7 @@
 
 import { AppSidebar } from "@/components/layouts/components/app-sidebar";
 import { TopBar } from "@/components/layouts/components/top-bar";
+import { FloatingChatButton } from "@/components/ui/floating-chat-button";
 
 interface MainLayoutProps {
   children: React.ReactNode;
@@ -40,6 +41,9 @@ export function MainLayout({
         {/* Page Content */}
         <main className="flex-1 min-h-0">{children}</main>
       </div>
+
+      {/* Floating Research Chat Button */}
+      <FloatingChatButton />
     </div>
   );
 }
