@@ -405,7 +405,7 @@ This project includes a Python agent (using [uAgents](https://docs.agentverse.ai
    python agent/agent.py
    ```
 
-The agent will listen for chat messages about Morpho protocol and respond with live data from the Morpho subgraph.
+The agent will listen for chat messages about the Morpho protocol and respond with live data from the Morpho subgraph.
 
 ---
 
